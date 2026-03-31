@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app_theme.dart';
+import 'theme_controller.dart';
 import 'screens/shell/app_shell.dart';
 
 void main() {
@@ -20,16 +21,16 @@ class AppGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AppGate',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      // Solid dark background so nothing bleeds through on web
-      builder: (context, child) => Container(
-        color: AppColors.background,
-        child: child,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeController.notifier,
+      builder: (_, mode, __) => MaterialApp(
+        title: 'AppGate',
+        debugShowCheckedModeBanner: false,
+        themeMode: mode,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        home: const AppShell(),
       ),
-      home: const AppShell(),
     );
   }
 }

@@ -1,5 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../app_theme.dart';
+import '../../theme_controller.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -9,109 +11,148 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _biometricOverride = false;
-  bool _showAppNames = true;
-  bool _dailyReminders = false;
-  bool _strictMode = false;
+  bool _notifications = true;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subColor =
+        isDark ? AppColors.textSecondary : AppColors.lightTextSecondary;
+    final mutedColor =
+        isDark ? AppColors.textMuted : AppColors.lightTextMuted;
+
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            _buildHeader(context),
+            // Header
             SliverPadding(
-              padding:
-                  const EdgeInsets.fromLTRB(Sp.x5, Sp.x6, Sp.x5, Sp.x8),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _SectionLabel('BLOCKING'),
-                  const SizedBox(height: Sp.x3),
-                  _SettingsGroup(tiles: [
-                    _SwitchTile(
-                      icon: Icons.lock_clock_rounded,
-                      iconColor: AppColors.blocked,
-                      title: 'Strict Mode',
-                      subtitle:
-                          'Disable all unlock options — no purchases or challenges',
-                      value: _strictMode,
-                      onChanged: (v) =>
-                          setState(() => _strictMode = v),
+              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x6, Sp.x5, 0),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Settings',
+                        style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 2),
+                    Text('App preferences',
+                        style: TextStyle(color: subColor, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
+
+            // Appearance
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x6, Sp.x5, 0),
+              sliver: SliverToBoxAdapter(
+                child: _Section(
+                  label: 'APPEARANCE',
+                  children: [
+                    ValueListenableBuilder<ThemeMode>(
+                      valueListenable: ThemeController.notifier,
+                      builder: (_, mode, __) => _SwitchRow(
+                        icon: mode == ThemeMode.dark
+                            ? Icons.dark_mode_rounded
+                            : Icons.light_mode_rounded,
+                        iconColor: mode == ThemeMode.dark
+                            ? AppColors.primary
+                            : AppColors.warning,
+                        title: 'Dark Mode',
+                        subtitle: mode == ThemeMode.dark
+                            ? 'OLED dark with glass cards'
+                            : 'Light with frosted cards',
+                        value: mode == ThemeMode.dark,
+                        onChanged: (v) {
+                          ThemeController.notifier.value =
+                              v ? ThemeMode.dark : ThemeMode.light;
+                        },
+                        isDark: isDark,
+                      ),
                     ),
-                    _SwitchTile(
-                      icon: Icons.fingerprint_rounded,
-                      iconColor: AppColors.primary,
-                      title: 'Biometric Override',
-                      subtitle:
-                          'Allow Face ID or Touch ID to bypass a block',
-                      value: _biometricOverride,
-                      onChanged: (v) =>
-                          setState(() => _biometricOverride = v),
-                    ),
-                    _SwitchTile(
-                      icon: Icons.visibility_outlined,
-                      iconColor: AppColors.info,
-                      title: 'Show App Name on Lock Screen',
-                      subtitle:
-                          'Display which app is blocked when locked',
-                      value: _showAppNames,
-                      onChanged: (v) =>
-                          setState(() => _showAppNames = v),
-                    ),
-                  ]),
-                  const SizedBox(height: Sp.x6),
-                  _SectionLabel('NOTIFICATIONS'),
-                  const SizedBox(height: Sp.x3),
-                  _SettingsGroup(tiles: [
-                    _SwitchTile(
+                  ],
+                ),
+              ),
+            ),
+
+            // Notifications
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x5, Sp.x5, 0),
+              sliver: SliverToBoxAdapter(
+                child: _Section(
+                  label: 'NOTIFICATIONS',
+                  children: [
+                    _SwitchRow(
                       icon: Icons.notifications_outlined,
                       iconColor: AppColors.warning,
-                      title: 'Daily Summary',
-                      subtitle:
-                          'Get a summary of screen time saved each evening',
-                      value: _dailyReminders,
-                      onChanged: (v) =>
-                          setState(() => _dailyReminders = v),
+                      title: 'Unlock Reminders',
+                      subtitle: "Alert when you've used today's unlock",
+                      value: _notifications,
+                      onChanged: (v) => setState(() => _notifications = v),
+                      isDark: isDark,
                     ),
-                  ]),
-                  const SizedBox(height: Sp.x6),
-                  _SectionLabel('PURCHASES'),
-                  const SizedBox(height: Sp.x3),
-                  _SettingsGroup(tiles: [
-                    _NavTile(
-                      icon: Icons.receipt_long_outlined,
-                      iconColor: AppColors.unlocked,
-                      title: 'Restore Purchases',
-                      subtitle:
-                          'Re-grant unlocks from a previous device or install',
-                      onTap: () {},
+                  ],
+                ),
+              ),
+            ),
+
+            // Permissions
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x5, Sp.x5, 0),
+              sliver: SliverToBoxAdapter(
+                child: _Section(
+                  label: 'PERMISSIONS',
+                  children: [
+                    _NavRow(
+                      icon: Icons.phonelink_lock_rounded,
+                      iconColor: AppColors.tierShort,
+                      title: 'Screen Time Access',
+                      subtitle: 'Grant permission to read usage data',
+                      onTap: () => _showPermissionSheet(context, isDark),
+                      isDark: isDark,
                     ),
-                  ]),
-                  const SizedBox(height: Sp.x6),
-                  _SectionLabel('ABOUT'),
-                  const SizedBox(height: Sp.x3),
-                  _SettingsGroup(tiles: [
-                    _NavTile(
+                  ],
+                ),
+              ),
+            ),
+
+            // Legal
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x5, Sp.x5, 0),
+              sliver: SliverToBoxAdapter(
+                child: _Section(
+                  label: 'LEGAL',
+                  children: [
+                    _NavRow(
                       icon: Icons.shield_outlined,
-                      iconColor: AppColors.textMuted,
+                      iconColor: mutedColor,
                       title: 'Privacy Policy',
                       onTap: () {},
+                      isDark: isDark,
                     ),
-                    _NavTile(
+                    _Divider(isDark: isDark),
+                    _NavRow(
                       icon: Icons.description_outlined,
-                      iconColor: AppColors.textMuted,
+                      iconColor: mutedColor,
                       title: 'Terms of Service',
                       onTap: () {},
+                      isDark: isDark,
                     ),
-                    _InfoTile(
-                      icon: Icons.info_outline_rounded,
-                      iconColor: AppColors.textMuted,
-                      title: 'Version',
-                      value: '1.0.0',
-                    ),
-                  ]),
-                ]),
+                  ],
+                ),
+              ),
+            ),
+
+            // Version
+            SliverPadding(
+              padding:
+                  const EdgeInsets.fromLTRB(Sp.x5, Sp.x6, Sp.x5, Sp.x12),
+              sliver: SliverToBoxAdapter(
+                child: Center(
+                  child: Text('AppGate 1.0.0',
+                      style: TextStyle(color: mutedColor, fontSize: 13)),
+                ),
               ),
             ),
           ],
@@ -120,86 +161,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return SliverPadding(
-      padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x5, Sp.x5, 0),
-      sliver: SliverToBoxAdapter(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Settings',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                    )),
-            const Text('Manage how AppGate works for you',
-                style:
-                    TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-          ],
+  void _showPermissionSheet(BuildContext context, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PermissionSheet(isDark: isDark),
+    );
+  }
+}
+
+// ── Section ───────────────────────────────────────────────────────────────────
+
+class _Section extends StatelessWidget {
+  final String label;
+  final List<Widget> children;
+
+  const _Section({required this.label, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final mutedColor =
+        isDark ? AppColors.textMuted : AppColors.lightTextMuted;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: TextStyle(
+                color: mutedColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.0)),
+        const SizedBox(height: Sp.x3),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(Rr.xl),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.surfaceDim
+                    : AppColors.lightSurfaceDim,
+                borderRadius: BorderRadius.circular(Rr.xl),
+                border: Border.all(
+                    color: isDark
+                        ? AppColors.glassStroke
+                        : AppColors.lightGlassStroke,
+                    width: 0.5),
+                boxShadow: isDark
+                    ? null
+                    : [
+                        BoxShadow(
+                            color: const Color(0x0F000000),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4))
+                      ],
+              ),
+              child: Column(children: children),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
 
-// ── Section label ─────────────────────────────────────────────────────────────
-
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
+class _Divider extends StatelessWidget {
+  final bool isDark;
+  const _Divider({required this.isDark});
 
   @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: AppColors.textMuted,
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        letterSpacing: 1.0,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Divider(
+        height: 0.5,
+        indent: Sp.x5 + 36 + Sp.x4,
+        color: isDark ? AppColors.glassStroke : AppColors.lightGlassStroke,
+      );
 }
 
-// ── Settings group card ───────────────────────────────────────────────────────
-
-class _SettingsGroup extends StatelessWidget {
-  final List<Widget> tiles;
-  const _SettingsGroup({required this.tiles});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(Rr.lg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: List.generate(tiles.length, (i) {
-          return Column(
-            children: [
-              tiles[i],
-              if (i < tiles.length - 1)
-                const Divider(
-                  height: 1,
-                  indent: Sp.x5 + 36 + Sp.x4,
-                  color: AppColors.border,
-                ),
-            ],
-          );
-        }),
-      ),
-    );
-  }
-}
-
-// ── Tile variants ─────────────────────────────────────────────────────────────
+// ── Row variants ──────────────────────────────────────────────────────────────
 
 class _IconChip extends StatelessWidget {
   final IconData icon;
   final Color color;
+
   const _IconChip({required this.icon, required this.color});
 
   @override
@@ -216,28 +261,34 @@ class _IconChip extends StatelessWidget {
   }
 }
 
-class _SwitchTile extends StatelessWidget {
+class _SwitchRow extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String title;
-  final String? subtitle;
+  final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
+  final bool isDark;
 
-  const _SwitchTile({
+  const _SwitchRow({
     required this.icon,
     required this.iconColor,
     required this.title,
-    this.subtitle,
+    required this.subtitle,
     required this.value,
     required this.onChanged,
+    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
+    final textColor =
+        isDark ? AppColors.textPrimary : AppColors.lightTextPrimary;
+    final mutedColor =
+        isDark ? AppColors.textMuted : AppColors.lightTextMuted;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: Sp.x5, vertical: Sp.x3),
+      padding: const EdgeInsets.symmetric(horizontal: Sp.x5, vertical: Sp.x3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -249,18 +300,14 @@ class _SwitchTile extends StatelessWidget {
               children: [
                 const SizedBox(height: 2),
                 Text(title,
-                    style: const TextStyle(
+                    style: TextStyle(
+                        color: textColor,
                         fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textPrimary)),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(subtitle!,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                          height: 1.4)),
-                ],
+                        fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: TextStyle(
+                        color: mutedColor, fontSize: 12, height: 1.3)),
               ],
             ),
           ),
@@ -272,26 +319,33 @@ class _SwitchTile extends StatelessWidget {
   }
 }
 
-class _NavTile extends StatelessWidget {
+class _NavRow extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String title;
   final String? subtitle;
   final VoidCallback onTap;
+  final bool isDark;
 
-  const _NavTile({
+  const _NavRow({
     required this.icon,
     required this.iconColor,
     required this.title,
     this.subtitle,
     required this.onTap,
+    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
+    final textColor =
+        isDark ? AppColors.textPrimary : AppColors.lightTextPrimary;
+    final mutedColor =
+        isDark ? AppColors.textMuted : AppColors.lightTextMuted;
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(Rr.lg),
+      borderRadius: BorderRadius.circular(Rr.xl),
       child: Padding(
         padding: const EdgeInsets.symmetric(
             horizontal: Sp.x5, vertical: Sp.x3 + 2),
@@ -304,19 +358,20 @@ class _NavTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
-                      style: const TextStyle(
+                      style: TextStyle(
+                          color: textColor,
                           fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textPrimary)),
-                  if (subtitle != null)
+                          fontWeight: FontWeight.w500)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
                     Text(subtitle!,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.textMuted)),
+                        style:
+                            TextStyle(color: mutedColor, fontSize: 12)),
+                  ],
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textMuted, size: 20),
+            Icon(Icons.chevron_right_rounded, color: mutedColor, size: 20),
           ],
         ),
       ),
@@ -324,39 +379,74 @@ class _NavTile extends StatelessWidget {
   }
 }
 
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String value;
+// ── Permission sheet ──────────────────────────────────────────────────────────
 
-  const _InfoTile({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.value,
-  });
+class _PermissionSheet extends StatelessWidget {
+  final bool isDark;
+  const _PermissionSheet({required this.isDark});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: Sp.x5, vertical: Sp.x3 + 2),
-      child: Row(
-        children: [
-          _IconChip(icon: icon, color: iconColor),
-          const SizedBox(width: Sp.x4),
-          Expanded(
-            child: Text(title,
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textPrimary)),
+    final textColor =
+        isDark ? AppColors.textPrimary : AppColors.lightTextPrimary;
+    final subColor =
+        isDark ? AppColors.textSecondary : AppColors.lightTextSecondary;
+
+    return ClipRRect(
+      borderRadius:
+          const BorderRadius.vertical(top: Radius.circular(Rr.xxl)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0x1AFFFFFF) : const Color(0xCCFFFFFF),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(Rr.xxl)),
+            border: Border(
+                top: BorderSide(
+                    color: isDark
+                        ? AppColors.glassStroke
+                        : AppColors.lightGlassStroke,
+                    width: 0.5)),
           ),
-          Text(value,
-              style: const TextStyle(
-                  color: AppColors.textMuted, fontSize: 14)),
-        ],
+          padding:
+              const EdgeInsets.fromLTRB(Sp.x6, Sp.x5, Sp.x6, Sp.x10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.glassStroke
+                        : AppColors.lightGlassStroke,
+                    borderRadius: BorderRadius.circular(Rr.full),
+                  ),
+                ),
+              ),
+              const SizedBox(height: Sp.x5),
+              Text('Screen Time Access',
+                  style: TextStyle(
+                      color: textColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: Sp.x3),
+              Text(
+                'AppGate needs Screen Time permission to read your app usage data and display accurate analytics.\n\nOn iOS, go to Settings → Screen Time → AppGate.\nOn Android, go to Settings → Digital Wellbeing.',
+                style: TextStyle(
+                    color: subColor, fontSize: 14, height: 1.6),
+              ),
+              const SizedBox(height: Sp.x6),
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Got It'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
