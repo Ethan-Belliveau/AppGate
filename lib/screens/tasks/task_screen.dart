@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../app_theme.dart';
+import 'challenges/breathing_screen.dart';
+import 'challenges/focus_timer_screen.dart';
+import 'challenges/gratitude_screen.dart';
+import 'challenges/quiz_screen.dart';
+import 'challenges/walk_screen.dart';
 
 class TaskScreen extends StatelessWidget {
   const TaskScreen({super.key});
@@ -18,7 +23,7 @@ class TaskScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               sliver: SliverToBoxAdapter(
                 child: Text(
-                  'Complete any challenge to earn an unlock.',
+                  'Complete any challenge below to earn an unlock.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
@@ -80,7 +85,7 @@ class _TaskHeader extends StatelessWidget {
   }
 }
 
-// ── Task data ───────────────────────────────────────────────────────────────
+// ── Task definitions ─────────────────────────────────────────────────────────
 
 class _TaskDef {
   final IconData icon;
@@ -89,6 +94,7 @@ class _TaskDef {
   final String description;
   final String duration;
   final String reward;
+  final Widget destination;
 
   const _TaskDef({
     required this.icon,
@@ -97,46 +103,60 @@ class _TaskDef {
     required this.description,
     required this.duration,
     required this.reward,
+    required this.destination,
   });
 }
 
-const _tasks = [
+final _tasks = [
   _TaskDef(
     icon: Icons.timer_rounded,
     color: AppColors.primary,
     title: '5-Minute Focus',
     description:
-        'Stay on this screen without navigating away for 5 full minutes.',
+        'Keep this screen open for 5 minutes without navigating away.',
     duration: '5 min',
     reward: 'Unlock 1 app',
+    destination: const FocusTimerScreen(),
   ),
   _TaskDef(
     icon: Icons.self_improvement_rounded,
     color: AppColors.info,
     title: 'Breathing Exercise',
-    description: 'Complete a guided 4-7-8 breathing cycle — three rounds.',
-    duration: '3 min',
+    description: 'Complete three rounds of guided 4-7-8 breathing.',
+    duration: '~3 min',
     reward: 'Unlock 1 app',
+    destination: const BreathingScreen(),
+  ),
+  _TaskDef(
+    icon: Icons.edit_note_rounded,
+    color: AppColors.warning,
+    title: 'Gratitude Journal',
+    description: 'Write three things you\'re grateful for right now.',
+    duration: '2 min',
+    reward: 'Unlock 1 app',
+    destination: const GratitudeScreen(),
   ),
   _TaskDef(
     icon: Icons.quiz_rounded,
-    color: AppColors.warning,
+    color: AppColors.primary,
     title: 'Mindfulness Quiz',
-    description: 'Answer 3 questions about your focus goals correctly.',
+    description: 'Answer 3 questions correctly to prove intentionality.',
     duration: '2 min',
     reward: 'Unlock 1 app',
+    destination: const QuizScreen(),
   ),
   _TaskDef(
     icon: Icons.directions_walk_rounded,
     color: AppColors.unlocked,
-    title: '100-Step Walk',
-    description: 'Step away from your device and return after 100 steps.',
-    duration: '~5 min',
+    title: 'Walk 1 km',
+    description: 'Step outside and walk a kilometre — tracked via Apple Health.',
+    duration: '~10 min',
     reward: 'Unlock 30 min',
+    destination: const WalkScreen(),
   ),
 ];
 
-// ── Task card ────────────────────────────────────────────────────────────────
+// ── Task card ─────────────────────────────────────────────────────────────────
 
 class _TaskCard extends StatelessWidget {
   final _TaskDef task;
@@ -148,7 +168,10 @@ class _TaskCard extends StatelessWidget {
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        onTap: () => _showStartDialog(context),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => task.destination),
+        ),
         borderRadius: BorderRadius.circular(16),
         splashColor: task.color.withValues(alpha: 0.08),
         highlightColor: task.color.withValues(alpha: 0.04),
@@ -178,14 +201,17 @@ class _TaskCard extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          task.title,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            task.title,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
@@ -232,49 +258,12 @@ class _TaskCard extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.textMuted, size: 20),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  void _showStartDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          task.title,
-          style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700),
-        ),
-        content: Text(
-          task.description,
-          style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textMuted)),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: start task timer / flow
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: task.color,
-              minimumSize: Size.zero,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Start'),
-          ),
-        ],
       ),
     );
   }
