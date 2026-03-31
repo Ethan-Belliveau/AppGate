@@ -1,6 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// Strict 8pt spacing grid. Always use these — never raw numbers.
+abstract final class Sp {
+  static const double x1 = 4;
+  static const double x2 = 8;
+  static const double x3 = 12;
+  static const double x4 = 16;
+  static const double x5 = 20;
+  static const double x6 = 24;
+  static const double x8 = 32;
+  static const double x10 = 40;
+  static const double x12 = 48;
+  static const double x16 = 64;
+}
+
+/// Border radius constants.
+abstract final class Rr {
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 20;
+  static const double full = 999;
+}
+
 /// AppGate design system.
 /// Style: OLED dark, flat/minimal, precision/technical tone.
 /// Palette: deep navy-black bg, indigo primary, semantic status colors.
@@ -167,6 +190,32 @@ abstract final class AppTheme {
           }
           return AppColors.surfaceVariant;
         }),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
+        indicatorColor: AppColors.primary.withValues(alpha: 0.15),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const IconThemeData(color: AppColors.primary, size: 22);
+          }
+          return const IconThemeData(color: AppColors.textMuted, size: 22);
+        }),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const TextStyle(
+                color: AppColors.primary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600);
+          }
+          return const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w500);
+        }),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        height: 64,
       ),
     );
   }

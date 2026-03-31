@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app_theme.dart';
-import 'screens/home/home_screen.dart';
+import 'screens/shell/app_shell.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +23,7 @@ class AppGate extends StatelessWidget {
       title: 'AppGate',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: const HomeScreen(),
+      home: const AppShell(),
     );
   }
 }

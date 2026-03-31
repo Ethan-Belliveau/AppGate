@@ -4,56 +4,120 @@ import '../../models/task_difficulty.dart';
 import '../../services/challenge_selector.dart';
 
 class TaskScreen extends StatelessWidget {
-  /// When provided, filters challenges to those appropriate for this context.
   final RestrictionContext? restrictionContext;
 
   const TaskScreen({super.key, this.restrictionContext});
 
   @override
   Widget build(BuildContext context) {
-    final challenges = ChallengeSelector.forContext(restrictionContext);
-    final diff = restrictionContext?.difficulty;
+    final all = ChallengeSelector.forContext(null); // show all, grouped
+    final easy = all.where((c) => c.difficulty == TaskDifficulty.light).toList();
+    final medium = all.where((c) => c.difficulty == TaskDifficulty.moderate).toList();
+    final hard = all.where((c) => c.difficulty == TaskDifficulty.hard).toList();
 
     return Scaffold(
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              sliver: SliverToBoxAdapter(child: _TaskHeader()),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              sliver: SliverToBoxAdapter(
-                child: diff != null
-                    ? _DifficultyBanner(difficulty: diff, context: restrictionContext!)
-                    : Text(
-                        'Complete any challenge to earn an unlock.',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-              ),
-            ),
-            const SliverPadding(
-              padding: EdgeInsets.fromLTRB(20, 28, 20, 0),
-              sliver: SliverToBoxAdapter(
-                child: Text(
-                  'AVAILABLE',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.2,
-                  ),
+            _buildHeader(context),
+            if (restrictionContext != null)
+              SliverPadding(
+                padding:
+                    const EdgeInsets.fromLTRB(Sp.x5, Sp.x4, Sp.x5, 0),
+                sliver: SliverToBoxAdapter(
+                  child: _ContextBanner(ctx: restrictionContext!),
                 ),
               ),
+            _buildGroup(context, 'EASY', easy),
+            _buildGroup(context, 'MEDIUM', medium),
+            _buildGroup(context, 'HARD', hard),
+            const SliverPadding(
+              padding: EdgeInsets.only(bottom: Sp.x8),
+              sliver: SliverToBoxAdapter(child: SizedBox()),
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-              sliver: SliverList.separated(
-                itemCount: challenges.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, i) =>
-                    _TaskCard(entry: challenges[i]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final fromLock = restrictionContext != null ||
+        Navigator.of(context).canPop();
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x5, Sp.x5, 0),
+      sliver: SliverToBoxAdapter(
+        child: Row(
+          children: [
+            if (Navigator.of(context).canPop()) ...[
+              IconButton(
+                onPressed: () => Navigator.maybePop(context),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                    size: 18),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.textSecondary,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Rr.sm)),
+                ),
+              ),
+              const SizedBox(width: Sp.x3),
+            ],
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Challenges',
+                    style:
+                        Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
+                            )),
+                Text(
+                  fromLock
+                      ? 'Complete one to earn an unlock'
+                      : 'Build habits, earn unlocks',
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 13),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroup(
+      BuildContext context, String label, List<ChallengeEntry> items) {
+    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox());
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x6, Sp.x5, 0),
+      sliver: SliverToBoxAdapter(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _GroupHeader(label: label, count: items.length),
+            const SizedBox(height: Sp.x3),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(Rr.lg),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: List.generate(items.length, (i) {
+                  return Column(
+                    children: [
+                      _ChallengeRow(entry: items[i]),
+                      if (i < items.length - 1)
+                        const Divider(
+                          height: 1,
+                          indent: Sp.x5 + 44 + Sp.x4,
+                          color: AppColors.border,
+                        ),
+                    ],
+                  );
+                }),
               ),
             ),
           ],
@@ -63,73 +127,154 @@ class TaskScreen extends StatelessWidget {
   }
 }
 
-// ── Header ──────────────────────────────────────────────────────────────────
+// ── Group header ──────────────────────────────────────────────────────────────
 
-class _TaskHeader extends StatelessWidget {
+class _GroupHeader extends StatelessWidget {
+  final String label;
+  final int count;
+  const _GroupHeader({required this.label, required this.count});
+
   @override
   Widget build(BuildContext context) {
+    final color = switch (label) {
+      'EASY' => AppColors.unlocked,
+      'MEDIUM' => AppColors.warning,
+      _ => AppColors.blocked,
+    };
     return Row(
       children: [
-        IconButton(
-          onPressed: () => Navigator.maybePop(context),
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.surface,
-            foregroundColor: AppColors.textSecondary,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.0,
           ),
         ),
-        const SizedBox(width: 12),
-        Text(
-          'Focus Challenges',
-          style: Theme.of(context).textTheme.titleLarge,
+        const SizedBox(width: Sp.x2),
+        Container(
+          padding:
+              const EdgeInsets.symmetric(horizontal: Sp.x2, vertical: 1),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(Rr.full),
+          ),
+          child: Text(
+            '$count',
+            style: TextStyle(
+                color: color, fontSize: 10, fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     );
   }
 }
 
-// ── Difficulty context banner ────────────────────────────────────────────────
+// ── Challenge row ─────────────────────────────────────────────────────────────
 
-class _DifficultyBanner extends StatelessWidget {
-  final TaskDifficulty difficulty;
-  final RestrictionContext context;
-
-  const _DifficultyBanner(
-      {required this.difficulty, required this.context});
+class _ChallengeRow extends StatelessWidget {
+  final ChallengeEntry entry;
+  const _ChallengeRow({required this.entry});
 
   @override
-  Widget build(BuildContext ctx) {
-    final (label, color, icon) = switch (difficulty) {
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => entry.builder()),
+      ),
+      borderRadius: BorderRadius.circular(Rr.lg),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: Sp.x5, vertical: Sp.x3 + 2),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: entry.color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(Rr.sm + 2),
+              ),
+              child: Icon(entry.icon, color: entry.color, size: 22),
+            ),
+            const SizedBox(width: Sp.x4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(entry.title,
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textPrimary)),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(entry.duration,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted)),
+                      const Text(' · ',
+                          style: TextStyle(
+                              color: AppColors.textMuted, fontSize: 12)),
+                      Text(entry.reward,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.unlocked,
+                              fontWeight: FontWeight.w500)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: AppColors.textMuted, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Context banner (when launched from lock screen) ───────────────────────────
+
+class _ContextBanner extends StatelessWidget {
+  final RestrictionContext ctx;
+  const _ContextBanner({required this.ctx});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color, icon) = switch (ctx.difficulty) {
       TaskDifficulty.light => (
-          'Light challenge required',
+          'An easy challenge will unlock this app',
           AppColors.unlocked,
           Icons.bolt_rounded
         ),
       TaskDifficulty.moderate => (
-          'Moderate challenge required',
+          'A medium challenge is required',
           AppColors.warning,
           Icons.local_fire_department_rounded
         ),
       TaskDifficulty.hard => (
-          'Serious challenge required',
+          'A serious challenge is required',
           AppColors.blocked,
           Icons.fitness_center_rounded
         ),
     };
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(Sp.x4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        borderRadius: BorderRadius.circular(Rr.md),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Icon(icon, color: color, size: 18),
-          const SizedBox(width: 10),
+          const SizedBox(width: Sp.x3),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,7 +285,7 @@ class _DifficultyBanner extends StatelessWidget {
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
                 Text(
-                  '${context.timeLimitMinutes ~/ 60}h limit · ${context.breakLabel}',
+                  '${ctx.timeLimitMinutes ~/ 60}h limit · ${ctx.breakLabel}',
                   style: const TextStyle(
                       color: AppColors.textMuted, fontSize: 11),
                 ),
@@ -148,148 +293,6 @@ class _DifficultyBanner extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ── Task card ─────────────────────────────────────────────────────────────────
-
-class _TaskCard extends StatelessWidget {
-  final ChallengeEntry entry;
-  const _TaskCard({required this.entry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => entry.builder()),
-        ),
-        borderRadius: BorderRadius.circular(16),
-        splashColor: entry.color.withValues(alpha: 0.08),
-        highlightColor: entry.color.withValues(alpha: 0.04),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.border),
-          ),
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: entry.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(entry.icon, color: entry.color, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            entry.title,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: entry.color.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            entry.duration,
-                            style: TextStyle(
-                              color: entry.color,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      entry.description,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Icon(Icons.bolt_rounded,
-                            size: 13, color: AppColors.unlocked),
-                        const SizedBox(width: 4),
-                        Text(
-                          entry.reward,
-                          style: const TextStyle(
-                            color: AppColors.unlocked,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        _DifficultyPill(difficulty: entry.difficulty),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.textMuted, size: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DifficultyPill extends StatelessWidget {
-  final TaskDifficulty difficulty;
-  const _DifficultyPill({required this.difficulty});
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (difficulty) {
-      TaskDifficulty.light => ('Easy', AppColors.unlocked),
-      TaskDifficulty.moderate => ('Medium', AppColors.warning),
-      TaskDifficulty.hard => ('Hard', AppColors.blocked),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-            color: color, fontSize: 10, fontWeight: FontWeight.w600),
       ),
     );
   }
