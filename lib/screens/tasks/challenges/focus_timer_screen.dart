@@ -2,9 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../app_theme.dart';
 
-/// 5-minute focus timer. User must keep the screen open the entire time.
+/// Focus timer. User must keep the screen open for [durationMinutes].
 class FocusTimerScreen extends StatefulWidget {
-  const FocusTimerScreen({super.key});
+  final int durationMinutes;
+  const FocusTimerScreen({super.key, this.durationMinutes = 5});
 
   @override
   State<FocusTimerScreen> createState() => _FocusTimerScreenState();
@@ -12,10 +13,10 @@ class FocusTimerScreen extends StatefulWidget {
 
 class _FocusTimerScreenState extends State<FocusTimerScreen>
     with WidgetsBindingObserver {
-  static const _totalSeconds = 5 * 60;
+  int get _totalSeconds => widget.durationMinutes * 60;
 
   Timer? _timer;
-  int _remaining = _totalSeconds;
+  late int _remaining;
   bool _started = false;
   bool _completed = false;
   bool _interrupted = false;
@@ -23,6 +24,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
   @override
   void initState() {
     super.initState();
+    _remaining = _totalSeconds;
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -118,7 +120,7 @@ class _FocusTimerScreenState extends State<FocusTimerScreen>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('5-Minute Focus',
+            Text('${widget.durationMinutes}-Minute Focus',
                 style: Theme.of(context).textTheme.titleLarge),
             const Text('Stay on screen until the timer ends',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12)),

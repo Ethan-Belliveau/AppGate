@@ -3,6 +3,7 @@ import '../../app_theme.dart';
 import '../lock/lock_screen.dart';
 import '../tasks/task_screen.dart';
 import '../settings/settings_screen.dart';
+import '../pomodoro/pomodoro_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -100,10 +101,23 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       _ActionItem(
+        icon: Icons.timer_outlined,
+        label: 'Pomodoro',
+        sublabel: '25 / 5 min',
+        color: AppColors.warning,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                const PomodoroScreen(appName: 'Focus Session'),
+          ),
+        ),
+      ),
+      _ActionItem(
         icon: Icons.lock_open_rounded,
         label: 'Unlock Gate',
         sublabel: 'Demo lock',
-        color: AppColors.warning,
+        color: AppColors.blocked,
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -114,11 +128,11 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: 3,
       shrinkWrap: true,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.5,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 0.95,
       physics: const NeverScrollableScrollPhysics(),
       children: actions.map((a) => _ActionCard(item: a)).toList(),
     );

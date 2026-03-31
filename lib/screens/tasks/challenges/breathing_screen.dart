@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../app_theme.dart';
 
-/// Guided 4-7-8 breathing challenge. Three full cycles earns an unlock.
+/// Guided 4-7-8 breathing challenge. [cycles] rounds earn an unlock.
 class BreathingScreen extends StatefulWidget {
-  const BreathingScreen({super.key});
+  final int cycles;
+  const BreathingScreen({super.key, this.cycles = 3});
 
   @override
   State<BreathingScreen> createState() => _BreathingScreenState();
@@ -13,7 +14,7 @@ enum _Phase { inhale, hold, exhale, done }
 
 class _BreathingScreenState extends State<BreathingScreen>
     with SingleTickerProviderStateMixin {
-  static const _totalCycles = 3;
+  int get _totalCycles => widget.cycles;
   static const _inhaleSeconds = 4;
   static const _holdSeconds = 7;
   static const _exhaleSeconds = 8;
@@ -161,7 +162,7 @@ class _BreathingScreenState extends State<BreathingScreen>
           children: [
             Text('Breathing Exercise',
                 style: Theme.of(context).textTheme.titleLarge),
-            Text('4-7-8 technique · $_totalCycles cycles',
+            Text('4-7-8 technique · ${widget.cycles} cycles',
                 style: const TextStyle(
                     color: AppColors.textMuted, fontSize: 12)),
           ],

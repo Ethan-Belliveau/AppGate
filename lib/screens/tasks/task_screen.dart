@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../app_theme.dart';
-import 'challenges/breathing_screen.dart';
-import 'challenges/focus_timer_screen.dart';
-import 'challenges/gratitude_screen.dart';
-import 'challenges/quiz_screen.dart';
-import 'challenges/walk_screen.dart';
+import '../../models/task_difficulty.dart';
+import '../../services/challenge_selector.dart';
 
 class TaskScreen extends StatelessWidget {
-  const TaskScreen({super.key});
+  /// When provided, filters challenges to those appropriate for this context.
+  final RestrictionContext? restrictionContext;
+
+  const TaskScreen({super.key, this.restrictionContext});
 
   @override
   Widget build(BuildContext context) {
+    final challenges = ChallengeSelector.forContext(restrictionContext);
+    final diff = restrictionContext?.difficulty;
+
     return Scaffold(
       body: SafeArea(
         child: CustomScrollView(
@@ -22,10 +25,12 @@ class TaskScreen extends StatelessWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               sliver: SliverToBoxAdapter(
-                child: Text(
-                  'Complete any challenge below to earn an unlock.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
+                child: diff != null
+                    ? _DifficultyBanner(difficulty: diff, context: restrictionContext!)
+                    : Text(
+                        'Complete any challenge to earn an unlock.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
               ),
             ),
             const SliverPadding(
@@ -45,10 +50,10 @@ class TaskScreen extends StatelessWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
               sliver: SliverList.separated(
-                itemCount: _tasks.length,
+                itemCount: challenges.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (context, i) =>
-                    _TaskCard(task: _tasks[i]),
+                    _TaskCard(entry: challenges[i]),
               ),
             ),
           ],
@@ -85,82 +90,74 @@ class _TaskHeader extends StatelessWidget {
   }
 }
 
-// ── Task definitions ─────────────────────────────────────────────────────────
+// ── Difficulty context banner ────────────────────────────────────────────────
 
-class _TaskDef {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String description;
-  final String duration;
-  final String reward;
-  final Widget destination;
+class _DifficultyBanner extends StatelessWidget {
+  final TaskDifficulty difficulty;
+  final RestrictionContext context;
 
-  const _TaskDef({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.description,
-    required this.duration,
-    required this.reward,
-    required this.destination,
-  });
+  const _DifficultyBanner(
+      {required this.difficulty, required this.context});
+
+  @override
+  Widget build(BuildContext ctx) {
+    final (label, color, icon) = switch (difficulty) {
+      TaskDifficulty.light => (
+          'Light challenge required',
+          AppColors.unlocked,
+          Icons.bolt_rounded
+        ),
+      TaskDifficulty.moderate => (
+          'Moderate challenge required',
+          AppColors.warning,
+          Icons.local_fire_department_rounded
+        ),
+      TaskDifficulty.hard => (
+          'Serious challenge required',
+          AppColors.blocked,
+          Icons.fitness_center_rounded
+        ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        color: color,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                Text(
+                  '${context.timeLimitMinutes ~/ 60}h limit · ${context.breakLabel}',
+                  style: const TextStyle(
+                      color: AppColors.textMuted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
-
-final _tasks = [
-  _TaskDef(
-    icon: Icons.timer_rounded,
-    color: AppColors.primary,
-    title: '5-Minute Focus',
-    description:
-        'Keep this screen open for 5 minutes without navigating away.',
-    duration: '5 min',
-    reward: 'Unlock 1 app',
-    destination: const FocusTimerScreen(),
-  ),
-  _TaskDef(
-    icon: Icons.self_improvement_rounded,
-    color: AppColors.info,
-    title: 'Breathing Exercise',
-    description: 'Complete three rounds of guided 4-7-8 breathing.',
-    duration: '~3 min',
-    reward: 'Unlock 1 app',
-    destination: const BreathingScreen(),
-  ),
-  _TaskDef(
-    icon: Icons.edit_note_rounded,
-    color: AppColors.warning,
-    title: 'Gratitude Journal',
-    description: 'Write three things you\'re grateful for right now.',
-    duration: '2 min',
-    reward: 'Unlock 1 app',
-    destination: const GratitudeScreen(),
-  ),
-  _TaskDef(
-    icon: Icons.quiz_rounded,
-    color: AppColors.primary,
-    title: 'Mindfulness Quiz',
-    description: 'Answer 3 questions correctly to prove intentionality.',
-    duration: '2 min',
-    reward: 'Unlock 1 app',
-    destination: const QuizScreen(),
-  ),
-  _TaskDef(
-    icon: Icons.directions_walk_rounded,
-    color: AppColors.unlocked,
-    title: 'Walk 1 km',
-    description: 'Step outside and walk a kilometre — tracked via Apple Health.',
-    duration: '~10 min',
-    reward: 'Unlock 30 min',
-    destination: const WalkScreen(),
-  ),
-];
 
 // ── Task card ─────────────────────────────────────────────────────────────────
 
 class _TaskCard extends StatelessWidget {
-  final _TaskDef task;
-  const _TaskCard({required this.task});
+  final ChallengeEntry entry;
+  const _TaskCard({required this.entry});
 
   @override
   Widget build(BuildContext context) {
@@ -170,11 +167,11 @@ class _TaskCard extends StatelessWidget {
       child: InkWell(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => task.destination),
+          MaterialPageRoute(builder: (_) => entry.builder()),
         ),
         borderRadius: BorderRadius.circular(16),
-        splashColor: task.color.withValues(alpha: 0.08),
-        highlightColor: task.color.withValues(alpha: 0.04),
+        splashColor: entry.color.withValues(alpha: 0.08),
+        highlightColor: entry.color.withValues(alpha: 0.04),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
@@ -188,10 +185,10 @@ class _TaskCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: task.color.withValues(alpha: 0.12),
+                  color: entry.color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(task.icon, color: task.color, size: 22),
+                child: Icon(entry.icon, color: entry.color, size: 22),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -199,11 +196,10 @@ class _TaskCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
                           child: Text(
-                            task.title,
+                            entry.title,
                             style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 15,
@@ -216,13 +212,13 @@ class _TaskCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: task.color.withValues(alpha: 0.1),
+                            color: entry.color.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            task.duration,
+                            entry.duration,
                             style: TextStyle(
-                              color: task.color,
+                              color: entry.color,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -232,7 +228,7 @@ class _TaskCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      task.description,
+                      entry.description,
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,
@@ -246,13 +242,15 @@ class _TaskCard extends StatelessWidget {
                             size: 13, color: AppColors.unlocked),
                         const SizedBox(width: 4),
                         Text(
-                          task.reward,
+                          entry.reward,
                           style: const TextStyle(
                             color: AppColors.unlocked,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                        const SizedBox(width: 10),
+                        _DifficultyPill(difficulty: entry.difficulty),
                       ],
                     ),
                   ],
@@ -264,6 +262,34 @@ class _TaskCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DifficultyPill extends StatelessWidget {
+  final TaskDifficulty difficulty;
+  const _DifficultyPill({required this.difficulty});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (difficulty) {
+      TaskDifficulty.light => ('Easy', AppColors.unlocked),
+      TaskDifficulty.moderate => ('Medium', AppColors.warning),
+      TaskDifficulty.hard => ('Hard', AppColors.blocked),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+            color: color, fontSize: 10, fontWeight: FontWeight.w600),
       ),
     );
   }

@@ -4,22 +4,20 @@ import 'package:flutter/material.dart';
 import '../../../app_theme.dart';
 import '../../../services/health_service.dart';
 
-/// Walk challenge. Uses HealthKit on iOS; shows a clear setup prompt on web.
-class WalkScreen extends StatefulWidget {
-  final double targetMetres;
-  const WalkScreen({super.key, this.targetMetres = 1000});
+/// Step-count challenge — lighter HealthKit alternative to the full walk.
+class StepsScreen extends StatefulWidget {
+  final int targetSteps;
+  const StepsScreen({super.key, this.targetSteps = 500});
 
   @override
-  State<WalkScreen> createState() => _WalkScreenState();
+  State<StepsScreen> createState() => _StepsScreenState();
 }
 
-class _WalkScreenState extends State<WalkScreen> {
-  double get _targetMetres => widget.targetMetres;
-
+class _StepsScreenState extends State<StepsScreen> {
   bool _started = false;
   bool _authorized = false;
   bool _completed = false;
-  double _metresCovered = 0;
+  int _stepsCovered = 0;
   DateTime? _startTime;
   Timer? _pollTimer;
 
@@ -44,34 +42,26 @@ class _WalkScreenState extends State<WalkScreen> {
     setState(() {
       _started = true;
       _startTime = DateTime.now();
-      _metresCovered = 0;
+      _stepsCovered = 0;
     });
-    // Poll every 10 seconds for distance updates
     _pollTimer =
         Timer.periodic(const Duration(seconds: 10), (_) => _poll());
   }
 
   Future<void> _poll() async {
     if (_startTime == null) return;
-    final dist =
-        await HealthService.instance.distanceMetresSince(_startTime!);
+    final steps =
+        await HealthService.instance.stepsSince(_startTime!);
     if (!mounted) return;
-    setState(() => _metresCovered = dist ?? _metresCovered);
-    if (_metresCovered >= _targetMetres) {
+    setState(() => _stepsCovered = steps ?? _stepsCovered);
+    if (_stepsCovered >= widget.targetSteps) {
       _pollTimer?.cancel();
       setState(() => _completed = true);
     }
   }
 
   double get _progress =>
-      (_metresCovered / _targetMetres).clamp(0.0, 1.0);
-
-  String get _targetLabel {
-    final km = _targetMetres / 1000.0;
-    return km == km.roundToDouble()
-        ? '${km.toStringAsFixed(0)} km'
-        : '${km.toStringAsFixed(1)} km';
-  }
+      (_stepsCovered / widget.targetSteps).clamp(0.0, 1.0);
 
   @override
   Widget build(BuildContext context) {
@@ -85,9 +75,20 @@ class _WalkScreenState extends State<WalkScreen> {
               _buildHeader(context),
               const Spacer(),
               if (kIsWeb)
-                _buildWebNotice()
+                _buildNotice(
+                  icon: Icons.phone_iphone_rounded,
+                  color: AppColors.info,
+                  title: 'iPhone required',
+                  body: 'Step counting reads from Apple Health (HealthKit) and '
+                      'works automatically when you run AppGate on your iPhone.',
+                )
               else if (!_authorized)
-                _buildAuthPrompt()
+                _buildNotice(
+                  icon: Icons.health_and_safety_rounded,
+                  color: AppColors.primary,
+                  title: 'Health access needed',
+                  body: 'AppGate needs permission to count your steps from Apple Health.',
+                )
               else if (!_started && !_completed)
                 _buildReadyState()
               else if (_started && !_completed)
@@ -99,7 +100,7 @@ class _WalkScreenState extends State<WalkScreen> {
                 FilledButton.icon(
                   onPressed: _start,
                   icon: const Icon(Icons.directions_walk_rounded, size: 18),
-                  label: const Text('Start Walk'),
+                  label: Text('Start — ${widget.targetSteps} steps'),
                 ),
               if (!kIsWeb && !_authorized)
                 FilledButton(
@@ -132,9 +133,9 @@ class _WalkScreenState extends State<WalkScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Walk $_targetLabel',
+            Text('${widget.targetSteps}-Step Walk',
                 style: Theme.of(context).textTheme.titleLarge),
-            const Text('Step away from your screen',
+            const Text('Tracked via Apple Health',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
           ],
         ),
@@ -142,25 +143,45 @@ class _WalkScreenState extends State<WalkScreen> {
     );
   }
 
-  Widget _buildWebNotice() {
-    return _InfoCard(
-      icon: Icons.phone_iphone_rounded,
-      iconColor: AppColors.info,
-      title: 'iPhone required',
-      body:
-          'This challenge reads steps and distance from Apple Health (HealthKit). '
-          'It will work automatically when you run AppGate on your iPhone.',
-    );
-  }
-
-  Widget _buildAuthPrompt() {
-    return _InfoCard(
-      icon: Icons.health_and_safety_rounded,
-      iconColor: AppColors.primary,
-      title: 'Health access needed',
-      body:
-          'AppGate needs permission to read your walking distance from Apple Health. '
-          'Tap below to grant access.',
+  Widget _buildNotice({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String body,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 16),
+          Text(title,
+              style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(body,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.6)),
+        ],
+      ),
     );
   }
 
@@ -179,7 +200,7 @@ class _WalkScreenState extends State<WalkScreen> {
         ),
         const SizedBox(height: 20),
         Text(
-          'Walk $_targetLabel',
+          '${widget.targetSteps} Steps',
           style: const TextStyle(
             color: AppColors.textPrimary,
             fontSize: 24,
@@ -189,8 +210,8 @@ class _WalkScreenState extends State<WalkScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Put your phone in your pocket and walk. '
-          'AppGate will track your distance via Apple Health.',
+          'A short walk to reset your focus. '
+          'AppGate counts your steps via Apple Health.',
           textAlign: TextAlign.center,
           style: TextStyle(
               color: AppColors.textSecondary, fontSize: 14, height: 1.6),
@@ -222,17 +243,19 @@ class _WalkScreenState extends State<WalkScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '${_metresCovered.toStringAsFixed(0)}m',
+                    '$_stepsCovered',
                     style: const TextStyle(
                       color: AppColors.textPrimary,
-                      fontSize: 36,
+                      fontSize: 42,
                       fontWeight: FontWeight.w700,
                       letterSpacing: -1,
                     ),
                   ),
-                  Text('of ${_targetMetres.toStringAsFixed(0)} m',
-                      style: TextStyle(
-                          color: AppColors.textMuted, fontSize: 13)),
+                  Text(
+                    'of ${widget.targetSteps} steps',
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 13),
+                  ),
                 ],
               ),
             ],
@@ -240,7 +263,7 @@ class _WalkScreenState extends State<WalkScreen> {
         ),
         const SizedBox(height: 32),
         const Text(
-          'Keep walking — AppGate is tracking your distance.',
+          'Keep walking — AppGate is counting your steps.',
           textAlign: TextAlign.center,
           style: TextStyle(
               color: AppColors.textSecondary, fontSize: 14, height: 1.5),
@@ -266,14 +289,14 @@ class _WalkScreenState extends State<WalkScreen> {
               color: AppColors.unlocked, size: 44),
         ),
         const SizedBox(height: 24),
-        Text('$_targetLabel complete',
+        Text('${widget.targetSteps} steps done',
             style: Theme.of(context)
                 .textTheme
                 .headlineMedium
                 ?.copyWith(color: AppColors.textPrimary)),
         const SizedBox(height: 8),
         const Text(
-          'You walked it off.\nYou\'ve earned an unlock.',
+          'Good move.\nYou\'ve earned an unlock.',
           textAlign: TextAlign.center,
           style:
               TextStyle(color: AppColors.textSecondary, height: 1.6),
@@ -292,59 +315,6 @@ class _WalkScreenState extends State<WalkScreen> {
       label: const Text('Unlock App'),
       style:
           FilledButton.styleFrom(backgroundColor: AppColors.unlocked),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String body;
-  const _InfoCard(
-      {required this.icon,
-      required this.iconColor,
-      required this.title,
-      required this.body});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 28),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            body,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                color: AppColors.textSecondary, fontSize: 13, height: 1.6),
-          ),
-        ],
-      ),
     );
   }
 }
