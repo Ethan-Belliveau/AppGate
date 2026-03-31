@@ -1,10 +1,7 @@
-/// A task the user must complete to unlock a blocked app or device.
-enum TaskType {
-  focus,      // Timed focus / no-distraction window
-  breathing,  // Guided breathing exercise
-  quiz,       // Answer a question correctly
-  custom,     // User-defined challenge
-}
+import 'app_tier.dart';
+
+/// Task type determines which challenge screen is shown.
+enum TaskType { focus, breathing, quiz, custom }
 
 enum TaskStatus { pending, inProgress, completed, failed }
 
@@ -15,6 +12,7 @@ class FocusTask {
   final TaskType type;
   TaskStatus status;
   final Duration? duration;
+  final AppTier tier;
 
   FocusTask({
     required this.id,
@@ -23,5 +21,6 @@ class FocusTask {
     required this.type,
     this.status = TaskStatus.pending,
     this.duration,
+    this.tier = AppTier.normal,
   });
 }

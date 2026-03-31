@@ -9,6 +9,7 @@ void main() {
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
     ),
   );
   runApp(const AppGate());
@@ -23,6 +24,11 @@ class AppGate extends StatelessWidget {
       title: 'AppGate',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
+      // Solid dark background so nothing bleeds through on web
+      builder: (context, child) => Container(
+        color: AppColors.background,
+        child: child,
+      ),
       home: const AppShell(),
     );
   }

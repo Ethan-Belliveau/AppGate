@@ -1,9 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../app_theme.dart';
-import '../home/home_screen.dart';
+import '../home/today_screen.dart';
 import '../apps/apps_screen.dart';
 import '../tasks/task_screen.dart';
-import '../settings/settings_screen.dart';
+import '../you/you_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -17,9 +18,9 @@ class _AppShellState extends State<AppShell> {
 
   static const _destinations = [
     NavigationDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home_rounded),
-      label: 'Dashboard',
+      icon: Icon(Icons.today_outlined),
+      selectedIcon: Icon(Icons.today_rounded),
+      label: 'Today',
     ),
     NavigationDestination(
       icon: Icon(Icons.apps_outlined),
@@ -29,37 +30,78 @@ class _AppShellState extends State<AppShell> {
     NavigationDestination(
       icon: Icon(Icons.task_alt_outlined),
       selectedIcon: Icon(Icons.task_alt_rounded),
-      label: 'Challenges',
+      label: 'Tasks',
     ),
     NavigationDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings_rounded),
-      label: 'Settings',
+      icon: Icon(Icons.person_outline_rounded),
+      selectedIcon: Icon(Icons.person_rounded),
+      label: 'You',
     ),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: const [
-          HomeScreen(),
-          AppsScreen(),
-          TaskScreen(),
-          SettingsScreen(),
+      // Solid bg so nothing bleeds through on web
+      backgroundColor: AppColors.background,
+      // extendBody lets the gradient Stack bleed under the glass nav bar
+      extendBody: true,
+      body: Stack(
+        children: [
+          // Full-screen gradient — always beneath everything
+          const Positioned.fill(
+            child: DecoratedBox(decoration: AppBg.decoration),
+          ),
+          IndexedStack(
+            index: _index,
+            children: const [
+              TodayScreen(),
+              AppsScreen(),
+              TaskScreen(),
+              YouScreen(),
+            ],
+          ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _GlassNavBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: _destinations,
-        backgroundColor: AppColors.surface,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.transparent,
-        indicatorColor: AppColors.primary.withValues(alpha: 0.15),
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        height: 64,
+      ),
+    );
+  }
+}
+
+/// Glass-frosted NavigationBar with blur backdrop.
+class _GlassNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+  final List<NavigationDestination> destinations;
+
+  const _GlassNavBar({
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+    required this.destinations,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Color(0x0DFFFFFF), // white ~5%
+            border: Border(
+              top: BorderSide(color: AppColors.glassStroke, width: 0.5),
+            ),
+          ),
+          child: NavigationBar(
+            selectedIndex: selectedIndex,
+            onDestinationSelected: onDestinationSelected,
+            destinations: destinations,
+          ),
+        ),
       ),
     );
   }
