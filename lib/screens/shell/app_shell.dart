@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app_theme.dart';
 import '../analytics/analytics_screen.dart';
 import '../apps/apps_screen.dart';
+import '../challenges/challenges_screen.dart';
 import '../settings/settings_screen.dart';
 
 class AppShell extends StatefulWidget {
@@ -17,9 +18,14 @@ class _AppShellState extends State<AppShell> {
 
   static const _destinations = [
     NavigationDestination(
-      icon: Icon(Icons.bar_chart_outlined),
-      selectedIcon: Icon(Icons.bar_chart_rounded),
-      label: 'Analytics',
+      icon: Icon(Icons.dashboard_outlined),
+      selectedIcon: Icon(Icons.dashboard_rounded),
+      label: 'Dashboard',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.flag_outlined),
+      selectedIcon: Icon(Icons.flag_rounded),
+      label: 'Challenges',
     ),
     NavigationDestination(
       icon: Icon(Icons.block_outlined),
@@ -49,6 +55,7 @@ class _AppShellState extends State<AppShell> {
             index: _index,
             children: const [
               AnalyticsScreen(),
+              ChallengesScreen(),
               AppsScreen(),
               SettingsScreen(),
             ],

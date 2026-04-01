@@ -1,16 +1,19 @@
+import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../app_theme.dart';
+import '../../models/app_tier.dart';
+import '../../state/blocked_apps_notifier.dart';
 import '../../theme/glass_card.dart';
 import '../apps/app_logo.dart';
+import '../lock/lock_screen.dart';
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Mock screen-time data (hours) ─────────────────────────────────────────────
 
 class _DayData {
   final String label;
-  final int minutes;
-  const _DayData(this.label, this.minutes);
+  final double hours;
+  const _DayData(this.label, this.hours);
 }
 
 class _AppUsage {
@@ -20,22 +23,14 @@ class _AppUsage {
   const _AppUsage(this.name, this.logoUrl, this.minutes);
 }
 
-const _weeklyData = [
-  _DayData('Mon', 185),
-  _DayData('Tue', 242),
-  _DayData('Wed', 168),
-  _DayData('Thu', 310),
-  _DayData('Fri', 275),
-  _DayData('Sat', 420),
-  _DayData('Sun', 115), // today (in progress)
-];
-
-// Monthly: 4 weeks in minutes
-const _monthlyData = [
-  _DayData('Wk 1', 1420),
-  _DayData('Wk 2', 1890),
-  _DayData('Wk 3', 1545),
-  _DayData('Wk 4', 1715),
+const _weeklyHours = [
+  _DayData('Mon', 3.1),
+  _DayData('Tue', 4.0),
+  _DayData('Wed', 2.8),
+  _DayData('Thu', 5.2),
+  _DayData('Fri', 4.6),
+  _DayData('Sat', 7.0),
+  _DayData('Sun', 1.9), // today (in progress)
 ];
 
 const _mostUsed = [
@@ -51,9 +46,6 @@ const _mostUsed = [
   _AppUsage('Reddit',
       'https://www.redditinc.com/assets/images/site/reddit-logo.png',
       32),
-  _AppUsage('Twitter/X',
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/X_logo_2023_original.svg/300px-X_logo_2023_original.svg.png',
-      18),
 ];
 
 String _fmt(int minutes) {
@@ -67,39 +59,28 @@ String _fmt(int minutes) {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-class AnalyticsScreen extends StatefulWidget {
+class AnalyticsScreen extends StatelessWidget {
   const AnalyticsScreen({super.key});
 
-  @override
-  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
-}
-
-class _AnalyticsScreenState extends State<AnalyticsScreen> {
-  bool _monthly = false;
-
-  List<_DayData> get _data => _monthly ? _monthlyData : _weeklyData;
-
-  int get _dailyAvg {
-    final data = _monthly ? _monthlyData : _weeklyData;
-    final total = data.fold(0, (s, d) => s + d.minutes);
-    final days = _monthly ? 28 : 7;
-    return total ~/ days;
+  double get _dailyAvg {
+    final total = _weeklyHours.fold(0.0, (s, d) => s + d.hours);
+    return total / _weeklyHours.length;
   }
 
-  int get _weekTotal =>
-      _weeklyData.fold(0, (s, d) => s + d.minutes);
-
-  int get _longestSession => 145; // mock
+  double get _weekTotal =>
+      _weeklyHours.fold(0.0, (s, d) => s + d.hours);
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subColor =
+        isDark ? AppColors.textSecondary : AppColors.lightTextSecondary;
+    final mutedColor =
+        isDark ? AppColors.textMuted : AppColors.lightTextMuted;
     final labelColor =
         isDark ? AppColors.textMuted : AppColors.lightTextMuted;
     final textColor =
         isDark ? AppColors.textPrimary : AppColors.lightTextPrimary;
-    final subColor =
-        isDark ? AppColors.textSecondary : AppColors.lightTextSecondary;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -113,30 +94,141 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Analytics',
+                    Text('Dashboard',
                         style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 2),
-                    Text('Screen time at a glance',
+                    Text("Today's overview",
                         style: TextStyle(color: subColor, fontSize: 13)),
                   ],
                 ),
               ),
             ),
 
-            // ── Weekly / Monthly toggle ──────────────────────────────────────
+            // ── Stat chips ───────────────────────────────────────────────────
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x5, Sp.x5, 0),
               sliver: SliverToBoxAdapter(
-                child: _PillToggle(
-                  monthly: _monthly,
-                  onChanged: (v) => setState(() => _monthly = v),
+                child: ValueListenableBuilder(
+                  valueListenable: BlockedAppsNotifier.notifier,
+                  builder: (_, apps, __) => GlassCard(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: Sp.x5, vertical: Sp.x4),
+                    child: IntrinsicHeight(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _StatChip(
+                              label: 'Saved Today',
+                              value: '48m',
+                              color: AppColors.tierShort,
+                            ),
+                          ),
+                          _VertDivider(),
+                          Expanded(
+                            child: _StatChip(
+                              label: 'Apps Blocked',
+                              value: '${apps.length}',
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          _VertDivider(),
+                          Expanded(
+                            child: _StatChip(
+                              label: 'Unlocks Used',
+                              value: '1',
+                              color: AppColors.warning,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
 
-            // ── Bar chart ────────────────────────────────────────────────────
+            // ── Pomodoro timer ────────────────────────────────────────────────
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x4, Sp.x5, 0),
+              sliver: SliverToBoxAdapter(
+                child: GlassCard(
+                  padding: const EdgeInsets.fromLTRB(
+                      Sp.x5, Sp.x4, Sp.x5, Sp.x4),
+                  child: const _PomodoroWidget(),
+                ),
+              ),
+            ),
+
+            // ── Demo lock screen button ───────────────────────────────────────
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x3, Sp.x5, 0),
+              sliver: SliverToBoxAdapter(
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const LockScreen(
+                        appName: 'Instagram',
+                        appLogoUrl:
+                            'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Instagram_logo_2016.svg/132px-Instagram_logo_2016.svg.png',
+                        tier: AppTier.normal,
+                      ),
+                    ),
+                  ),
+                  icon: const Icon(Icons.lock_open_rounded, size: 16),
+                  label: const Text('Demo Lock Screen'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                    foregroundColor: AppColors.primary,
+                    side: BorderSide(
+                        color: AppColors.primary.withValues(alpha: 0.4)),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Screen Time section label ────────────────────────────────────
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x6, Sp.x5, 0),
+              sliver: SliverToBoxAdapter(
+                child: Row(
+                  children: [
+                    Text(
+                      'SCREEN TIME',
+                      style: TextStyle(
+                        color: labelColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(width: Sp.x2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: Sp.x2, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: AppColors.warning.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(Rr.full),
+                        border: Border.all(
+                            color: AppColors.warning.withValues(alpha: 0.3),
+                            width: 0.5),
+                      ),
+                      child: const Text(
+                        'mock data',
+                        style: TextStyle(
+                            color: AppColors.warning,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Bar chart card ───────────────────────────────────────────────
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x3, Sp.x5, 0),
               sliver: SliverToBoxAdapter(
                 child: GlassCard(
                   padding: const EdgeInsets.fromLTRB(
@@ -145,7 +237,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _monthly ? 'Monthly overview' : 'Past 7 days',
+                        'Past 7 days',
                         style: TextStyle(
                           color: subColor,
                           fontSize: 12,
@@ -155,10 +247,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       const SizedBox(height: Sp.x4),
                       SizedBox(
                         height: 160,
-                        child: _BarChart(
-                          data: _data,
-                          highlightLast: !_monthly,
-                        ),
+                        child: _BarChart(data: _weeklyHours),
                       ),
                     ],
                   ),
@@ -166,9 +255,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               ),
             ),
 
-            // ── Stat chips ───────────────────────────────────────────────────
+            // ── Daily avg + Week total chips ─────────────────────────────────
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x4, Sp.x5, 0),
+              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x3, Sp.x5, 0),
               sliver: SliverToBoxAdapter(
                 child: GlassCard(
                   padding: const EdgeInsets.symmetric(
@@ -177,22 +266,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     child: Row(
                       children: [
                         Expanded(
-                            child: _StatChip(
-                                label: 'Daily avg',
-                                value: _fmt(_dailyAvg),
-                                color: AppColors.primary)),
+                          child: _StatChip(
+                            label: 'Daily avg',
+                            value:
+                                '${_dailyAvg.toStringAsFixed(1)}h',
+                            color: AppColors.primary,
+                          ),
+                        ),
                         _VertDivider(),
                         Expanded(
-                            child: _StatChip(
-                                label: 'Week total',
-                                value: _fmt(_weekTotal),
-                                color: AppColors.tierNormal)),
-                        _VertDivider(),
-                        Expanded(
-                            child: _StatChip(
-                                label: 'Longest',
-                                value: _fmt(_longestSession),
-                                color: AppColors.tierLong)),
+                          child: _StatChip(
+                            label: 'Week total',
+                            value:
+                                '${_weekTotal.toStringAsFixed(1)}h',
+                            color: AppColors.tierNormal,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -200,12 +289,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               ),
             ),
 
-            // ── Most used ────────────────────────────────────────────────────
+            // ── Most Used section label ──────────────────────────────────────
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x6, Sp.x5, 0),
               sliver: SliverToBoxAdapter(
                 child: Text(
-                  'MOST USED THIS WEEK',
+                  'MOST USED TODAY',
                   style: TextStyle(
                     color: labelColor,
                     fontSize: 11,
@@ -215,9 +304,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 ),
               ),
             ),
+
+            // ── Most Used list ───────────────────────────────────────────────
             SliverPadding(
-              padding:
-                  const EdgeInsets.fromLTRB(Sp.x5, Sp.x3, Sp.x5, Sp.x12),
+              padding: const EdgeInsets.fromLTRB(Sp.x5, Sp.x3, Sp.x5, 0),
               sliver: SliverToBoxAdapter(
                 child: GlassCard(
                   child: Column(
@@ -247,6 +337,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 ),
               ),
             ),
+
+            // ── Mock data disclaimer ─────────────────────────────────────────
+            SliverPadding(
+              padding:
+                  const EdgeInsets.fromLTRB(Sp.x5, Sp.x4, Sp.x5, Sp.x12),
+              sliver: SliverToBoxAdapter(
+                child: Center(
+                  child: Text(
+                    'Mock data — connect your device in Settings',
+                    style: TextStyle(color: mutedColor, fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -254,91 +358,251 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 }
 
-// ── Pill toggle ───────────────────────────────────────────────────────────────
+// ── Pomodoro widget ───────────────────────────────────────────────────────────
 
-class _PillToggle extends StatelessWidget {
-  final bool monthly;
-  final ValueChanged<bool> onChanged;
+enum _Phase { work, shortBreak, longBreak }
 
-  const _PillToggle({required this.monthly, required this.onChanged});
+enum _Status { idle, running, paused }
+
+class _PomodoroWidget extends StatefulWidget {
+  const _PomodoroWidget();
+
+  @override
+  State<_PomodoroWidget> createState() => _PomodoroWidgetState();
+}
+
+class _PomodoroWidgetState extends State<_PomodoroWidget> {
+  _Phase _phase = _Phase.work;
+  _Status _status = _Status.idle;
+  int _secondsLeft = 25 * 60;
+  int _sessionsDone = 0;
+  Timer? _timer;
+
+  int get _totalSeconds => switch (_phase) {
+        _Phase.work => 25 * 60,
+        _Phase.shortBreak => 5 * 60,
+        _Phase.longBreak => 15 * 60,
+      };
+
+  String get _phaseLabel => switch (_phase) {
+        _Phase.work => 'Focus',
+        _Phase.shortBreak => 'Short Break',
+        _Phase.longBreak => 'Long Break',
+      };
+
+  String get _timeString {
+    final m = _secondsLeft ~/ 60;
+    final s = _secondsLeft % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+  }
+
+  double get _progress => 1.0 - _secondsLeft / _totalSeconds;
+
+  void _start() {
+    setState(() => _status = _Status.running);
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_secondsLeft <= 0) {
+        _timer?.cancel();
+        _advancePhase();
+      } else {
+        setState(() => _secondsLeft--);
+      }
+    });
+  }
+
+  void _pause() {
+    _timer?.cancel();
+    setState(() => _status = _Status.paused);
+  }
+
+  void _reset() {
+    _timer?.cancel();
+    setState(() {
+      _status = _Status.idle;
+      _secondsLeft = _totalSeconds;
+    });
+  }
+
+  void _advancePhase() {
+    if (_phase == _Phase.work) {
+      final sessions = _sessionsDone + 1;
+      setState(() {
+        _sessionsDone = sessions;
+        if (sessions % 4 == 0) {
+          _phase = _Phase.longBreak;
+          _secondsLeft = 15 * 60;
+        } else {
+          _phase = _Phase.shortBreak;
+          _secondsLeft = 5 * 60;
+        }
+        _status = _Status.idle;
+      });
+    } else {
+      setState(() {
+        _phase = _Phase.work;
+        _secondsLeft = 25 * 60;
+        _status = _Status.idle;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(Rr.full),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          height: 40,
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.surfaceDim : AppColors.lightSurfaceDim,
-            borderRadius: BorderRadius.circular(Rr.full),
-            border: Border.all(
-                color: isDark
-                    ? AppColors.glassStroke
-                    : AppColors.lightGlassStroke,
-                width: 0.5),
-          ),
-          child: Row(
-            children: [
-              _PillOption(
-                  label: 'Weekly', selected: !monthly,
-                  onTap: () => onChanged(false)),
-              _PillOption(
-                  label: 'Monthly', selected: monthly,
-                  onTap: () => onChanged(true)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
+    final textColor =
+        isDark ? AppColors.textPrimary : AppColors.lightTextPrimary;
+    final mutedColor =
+        isDark ? AppColors.textMuted : AppColors.lightTextMuted;
+    final phaseColor = _phase == _Phase.work
+        ? AppColors.primary
+        : AppColors.tierShort;
 
-class _PillOption extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _PillOption(
-      {required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: double.infinity,
-          margin: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: selected
-                ? AppColors.primary.withValues(alpha: 0.18)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(Rr.full),
-            border: selected
-                ? Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.35),
-                    width: 0.5)
-                : null,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? AppColors.primary : Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.color,
-              fontSize: 13,
-              fontWeight:
-                  selected ? FontWeight.w600 : FontWeight.w500,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Phase label row
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: phaseColor,
+                shape: BoxShape.circle,
+              ),
             ),
+            const SizedBox(width: Sp.x2),
+            Text(
+              _phaseLabel,
+              style: TextStyle(
+                color: phaseColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              'Pomodoro',
+              style: TextStyle(color: mutedColor, fontSize: 12),
+            ),
+          ],
+        ),
+        const SizedBox(height: Sp.x3),
+        // Time display
+        Text(
+          _timeString,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 40,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -1.5,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
-      ),
+        const SizedBox(height: Sp.x3),
+        // Progress bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(Rr.full),
+          child: LinearProgressIndicator(
+            value: _progress,
+            minHeight: 4,
+            backgroundColor: isDark
+                ? const Color(0x1AFFFFFF)
+                : const Color(0x1A000000),
+            valueColor: AlwaysStoppedAnimation<Color>(phaseColor),
+          ),
+        ),
+        const SizedBox(height: Sp.x4),
+        // Session dots + controls
+        Row(
+          children: [
+            // Session dots (4 per cycle)
+            ...List.generate(4, (i) {
+              final done = i < (_sessionsDone % 4);
+              return Padding(
+                padding: const EdgeInsets.only(right: 5),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: done
+                        ? AppColors.primary
+                        : (isDark
+                            ? const Color(0x26FFFFFF)
+                            : const Color(0x26000000)),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              );
+            }),
+            const Spacer(),
+            // Reset button
+            if (_status != _Status.idle)
+              Padding(
+                padding: const EdgeInsets.only(right: Sp.x2),
+                child: GestureDetector(
+                  onTap: _reset,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0x14FFFFFF)
+                          : const Color(0x14000000),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.refresh_rounded,
+                        color: mutedColor, size: 16),
+                  ),
+                ),
+              ),
+            // Start / Pause button
+            GestureDetector(
+              onTap: _status == _Status.running ? _pause : _start,
+              child: Container(
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: Sp.x4),
+                decoration: BoxDecoration(
+                  color: phaseColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(Rr.full),
+                  border: Border.all(
+                      color: phaseColor.withValues(alpha: 0.4), width: 0.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _status == _Status.running
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      color: phaseColor,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _status == _Status.running
+                          ? 'Pause'
+                          : (_status == _Status.paused ? 'Resume' : 'Start'),
+                      style: TextStyle(
+                        color: phaseColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -347,9 +611,8 @@ class _PillOption extends StatelessWidget {
 
 class _BarChart extends StatelessWidget {
   final List<_DayData> data;
-  final bool highlightLast;
 
-  const _BarChart({required this.data, required this.highlightLast});
+  const _BarChart({required this.data});
 
   @override
   Widget build(BuildContext context) {
@@ -357,7 +620,6 @@ class _BarChart extends StatelessWidget {
     return CustomPaint(
       painter: _BarChartPainter(
         data: data,
-        highlightLast: highlightLast,
         isDark: isDark,
         primaryColor: AppColors.primary,
         mutedColor: isDark
@@ -374,7 +636,6 @@ class _BarChart extends StatelessWidget {
 
 class _BarChartPainter extends CustomPainter {
   final List<_DayData> data;
-  final bool highlightLast;
   final bool isDark;
   final Color primaryColor;
   final Color mutedColor;
@@ -383,7 +644,6 @@ class _BarChartPainter extends CustomPainter {
 
   const _BarChartPainter({
     required this.data,
-    required this.highlightLast,
     required this.isDark,
     required this.primaryColor,
     required this.mutedColor,
@@ -396,14 +656,14 @@ class _BarChartPainter extends CustomPainter {
     if (data.isEmpty) return;
 
     final maxVal =
-        data.map((d) => d.minutes).reduce(math.max).toDouble();
+        data.map((d) => d.hours).reduce(math.max).toDouble();
     const labelH = 20.0;
     const barRadius = Radius.circular(6);
     final chartH = size.height - labelH;
     final barW = (size.width / data.length) * 0.55;
     final gap = (size.width / data.length) * 0.45;
 
-    // Grid lines (3 horizontal)
+    // Grid lines
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 0.5;
@@ -414,8 +674,8 @@ class _BarChartPainter extends CustomPainter {
 
     // Bars
     for (var i = 0; i < data.length; i++) {
-      final isToday = highlightLast && i == data.length - 1;
-      final frac = data[i].minutes / maxVal;
+      final isToday = i == data.length - 1;
+      final frac = data[i].hours / maxVal;
       final barH = (chartH - 4) * frac;
       final left = i * (size.width / data.length) + gap / 2;
       final rect = RRect.fromRectAndRadius(
@@ -424,7 +684,6 @@ class _BarChartPainter extends CustomPainter {
       );
 
       if (isToday) {
-        // Gradient bar for today
         final shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -432,25 +691,21 @@ class _BarChartPainter extends CustomPainter {
             primaryColor,
             primaryColor.withValues(alpha: 0.6),
           ],
-        ).createShader(
-            Rect.fromLTWH(left, chartH - barH, barW, barH));
-        canvas.drawRRect(
-            rect,
-            Paint()
-              ..shader = shader
-              ..style = PaintingStyle.fill);
-
-        // Glow
+        ).createShader(Rect.fromLTWH(left, chartH - barH, barW, barH));
+        canvas.drawRRect(rect, Paint()
+          ..shader = shader
+          ..style = PaintingStyle.fill);
         canvas.drawRRect(
             rect,
             Paint()
               ..color = primaryColor.withValues(alpha: 0.18)
-              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
+              ..maskFilter =
+                  const MaskFilter.blur(BlurStyle.normal, 8));
       } else {
         canvas.drawRRect(rect, Paint()..color = mutedColor);
       }
 
-      // Day label
+      // Label
       final tp = TextPainter(
         text: TextSpan(
           text: data[i].label,
@@ -463,18 +718,13 @@ class _BarChartPainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(
-          canvas,
-          Offset(
-              left + barW / 2 - tp.width / 2, chartH + 6));
+      tp.paint(canvas, Offset(left + barW / 2 - tp.width / 2, chartH + 6));
     }
   }
 
   @override
   bool shouldRepaint(_BarChartPainter old) =>
-      old.data != data ||
-      old.highlightLast != highlightLast ||
-      old.isDark != isDark;
+      old.data != data || old.isDark != isDark;
 }
 
 // ── Stat chip ─────────────────────────────────────────────────────────────────
@@ -561,7 +811,6 @@ class _MostUsedRow extends StatelessWidget {
                         fontSize: 14,
                         fontWeight: FontWeight.w500)),
                 const SizedBox(height: 5),
-                // Progress bar
                 LayoutBuilder(builder: (_, c) {
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(Rr.full),
